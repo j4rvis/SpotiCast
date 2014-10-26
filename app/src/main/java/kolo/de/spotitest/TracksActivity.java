@@ -2,6 +2,10 @@ package kolo.de.spotitest;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.support.v4.view.MenuItemCompat;
+import android.support.v7.app.MediaRouteActionProvider;
+import android.support.v7.media.MediaRouteSelector;
+import android.support.v7.media.MediaRouter;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -9,6 +13,7 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
 
+import com.google.android.gms.cast.CastDevice;
 import com.spotify.sdk.android.Spotify;
 import com.spotify.sdk.android.playback.ConnectionStateCallback;
 import com.spotify.sdk.android.playback.Player;
@@ -39,6 +44,11 @@ public class TracksActivity extends Activity implements TrackListFilled, PlayerN
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_tracks, menu);
+
+        /*MenuItem mediaRouteMenuItem = menu.findItem(R.id.media_route_menu_item);
+        MediaRouteActionProvider mediaRouteActionProvider = (MediaRouteActionProvider) MenuItemCompat.getActionProvider(mediaRouteMenuItem);
+        mediaRouteActionProvider.setRouteSelector(mediaRouteSelector);*/
+
         return true;
     }
 
@@ -127,4 +137,23 @@ public class TracksActivity extends Activity implements TrackListFilled, PlayerN
     public void resumePlaying(View view) {
         mPlayer.resume();
     }
+
+    private final MediaRouter.Callback mediaRouterCallback = new MediaRouter.Callback()
+    {
+        @Override
+        public void onRouteSelected(MediaRouter router, MediaRouter.RouteInfo route)
+        {
+            CastDevice device = CastDevice.getFromBundle(route.getExtras());
+            //setSelectedDevice(device);
+        }
+
+        @Override
+        public void onRouteUnselected(MediaRouter router, MediaRouter.RouteInfo route)
+        {
+            //setSelectedDevice(null);
+        }
+    };
+
+    private MediaRouter mediaRouter;
+    private MediaRouteSelector mediaRouteSelector;
 }
