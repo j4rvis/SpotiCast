@@ -13,6 +13,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -25,7 +26,9 @@ import com.google.android.gms.cast.MediaMetadata;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.RemoteMediaPlayer;
 import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
 import com.spotify.sdk.android.Spotify;
@@ -41,26 +44,26 @@ import java.util.ArrayList;
 public class TracksActivity extends ActionBarActivity implements TrackListFilled, PlayerNotificationCallback, ConnectionStateCallback {
 
     private static final String TAG = MainActivity.class.getSimpleName();
-    private static final String APPID = "CC2ECB12";
+    private static final String APP_ID = "CC2ECB12";
 
     private ListView mListViewTracks;
     private Spotify mSpotify;
     private Player mPlayer;
 
-    private MediaRouter mMediaRouter;
-    private MediaRouteSelector mMediaRouteSelector;
-    private MediaRouter.Callback mMediaRouterCallback;
+    private MediaRouter mRouter;
+    private MediaRouter.Callback mCallback;
+    private MediaRouteSelector mSelector;
     private CastDevice mSelectedDevice;
     private GoogleApiClient mApiClient;
     private Cast.Listener mCastListener;
-    private GoogleApiClient.ConnectionCallbacks mConnectionCallbacks;
+    private ConnectionCallbacks mConnectionCallbacks;
+    boolean mWaitingForReconnect = false;
     private ConnectionFailedListener mConnectionFailedListener;
-    private HelloWorldChannel mHelloWorldChannel;
-    private boolean mApplicationStarted;
-    private boolean mWaitingForReconnect;
-    private String mSessionId;
+    HelloWorldChannel mHelloWorldChannel = new HelloWorldChannel();
     RemoteMediaPlayer mRemoteMediaPlayer = new RemoteMediaPlayer();
-    private MediaRouter.Callback mCallback;
+    Button play;
+    Button play2;
+
 
 
     @Override
@@ -72,16 +75,15 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
         Playlist _List = getIntent().getExtras().getParcelable("selected_list");
         _List.getTracks(this);
 
-        mMediaRouter = MediaRouter.getInstance(getApplicationContext());
-        // Create a MediaRouteSelector for the type of routes your app supports
-        mMediaRouteSelector = new MediaRouteSelector.Builder()
+        mRouter = MediaRouter.getInstance(getApplicationContext());
+        mSelector = new MediaRouteSelector.Builder()
                 .addControlCategory(MediaControlIntent.CATEGORY_LIVE_AUDIO)
-                .addControlCategory(CastMediaControlIntent.categoryForCast(APPID)).build();
-
-        // Create a MediaRouter callback for discovery events
-        mMediaRouterCallback = new MyMediaRouterCallback();
-
+                .addControlCategory(MediaControlIntent.CATEGORY_REMOTE_PLAYBACK)
+                .build();
+        mCallback = new MyCallback();
         mCastListener = new CastListener();
+        mConnectionCallbacks = new ConnectionCallbacks();
+        mConnectionFailedListener = new ConnectionFailedListener();
 
         mRemoteMediaPlayer = new RemoteMediaPlayer();
         mRemoteMediaPlayer
@@ -103,6 +105,7 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
                     }
                 });
 
+
     }
 
 
@@ -120,7 +123,7 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
         MediaRouteActionProvider mediaRouteActionProvider = (MediaRouteActionProvider) MenuItemCompat
                 .getActionProvider(mediaRouteMenuItem);
         // Set the MediaRouteActionProvider selector for device discovery.
-        mediaRouteActionProvider.setRouteSelector(mMediaRouteSelector);
+        mediaRouteActionProvider.setRouteSelector(mSelector);
 
         return true;
     }
@@ -155,8 +158,7 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
                     public void onInitialized() {
                         mPlayer.addConnectionStateCallback(TracksActivity.this);
                         mPlayer.addPlayerNotificationCallback(TracksActivity.this);
-                        //mPlayer.play(_TrackURI);
-                        Play();
+                        mPlayer.play(_TrackURI);
                     }
 
                     @Override
@@ -167,41 +169,6 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
             }
         });
 
-    }
-
-    private void Play() {
-        try {
-            if (mRemoteMediaPlayer != null) {
-                mRemoteMediaPlayer.pause(mApiClient);
-                Log.e("mRemoteMediaPlayer", "isNull");
-            } else {
-                Log.e("MainActivity", "Play");
-                MediaMetadata mediaMetadata = new MediaMetadata(
-                        MediaMetadata.MEDIA_TYPE_MOVIE);
-                mediaMetadata.putString(MediaMetadata.KEY_TITLE, "My video");
-                MediaInfo mediaInfo = new MediaInfo.Builder(
-                        "http://www.youtube.com/watch?feature=player_embedded&v=uK4_x_qq_E8")
-                        .setContentType("video/mp4")
-                        .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
-                        .setMetadata(mediaMetadata).build();
-                mRemoteMediaPlayer
-                        .load(mApiClient, mediaInfo, true)
-                        .setResultCallback(
-                                new ResultCallback<RemoteMediaPlayer.MediaChannelResult>() {
-
-                                    @Override
-                                    public void onResult(
-                                            RemoteMediaPlayer.MediaChannelResult result) {
-                                        if (result.getStatus().isSuccess()) {
-                                        }
-                                    }
-                                });
-            }
-        } catch (IllegalStateException e) {
-            Log.e("IllegalStateException", String.valueOf(e));
-        } catch (Exception e) {
-            Log.e("Exception", String.valueOf(e));
-        }
     }
 
     @Override
@@ -244,297 +211,108 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
     }
 
     public void resumePlaying(View view) {
-        mPlayer.resume();
+       // mPlayer.resume();
+        Play();
     }
 
-    private final MediaRouter.Callback mediaRouterCallback = new MediaRouter.Callback()
-    {
+    // Add the callback on start to tell the media router what kinds of routes
+    // the application is interested in so that it can try to discover suitable
+    // ones.
+    public void onStart() {
+        super.onStart();
+
+        mRouter.addCallback(mSelector, mCallback,
+                MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY);
+
+        MediaRouter.RouteInfo route = mRouter.updateSelectedRoute(mSelector);
+        // do something with the route...
+    }
+
+    // Remove the selector on stop to tell the media router that it no longer
+    // needs to invest effort trying to discover routes of these kinds for now.
+    public void onStop() {
+        //setSelectedDevice(null);
+        mRouter.removeCallback(mCallback);
+        super.onStop();
+    }
+
+    private final class MyCallback extends MediaRouter.Callback {
+
         @Override
-        public void onRouteSelected(MediaRouter router, MediaRouter.RouteInfo route)
-        {
+        public void onRouteSelected(MediaRouter router, MediaRouter.RouteInfo route) {
+            super.onRouteSelected(router, route);
             CastDevice device = CastDevice.getFromBundle(route.getExtras());
+            setSelectedDevice(device);
+
             //setSelectedDevice(device);
+            String routeId = route.getId();
+            Toast.makeText(getApplicationContext(), "RoutedId " + routeId, Toast.LENGTH_SHORT).show();
+
         }
 
         @Override
-        public void onRouteUnselected(MediaRouter router, MediaRouter.RouteInfo route)
-        {
-            //setSelectedDevice(null);
+        public void onRouteUnselected(MediaRouter router, MediaRouter.RouteInfo route) {
+            super.onRouteUnselected(router, route);
+            mSelectedDevice = null;
         }
-    };
+
+    }
 
     @Override
     protected void onResume() {
         super.onResume();
-
-        // Add the callback to start device discovery
-        mMediaRouter.addCallback(mMediaRouteSelector, mMediaRouterCallback,
-                MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY);
-    }
-
-    @Override
-    protected void onPause() {
-        // Remove the callback to stop device discovery
-        mMediaRouter.removeCallback(mMediaRouterCallback);
-        super.onPause();
-    }
-
-
-    private class MyMediaRouterCallback extends MediaRouter.Callback {
-
-        @Override
-        public void onRouteSelected(MediaRouter router, MediaRouter.RouteInfo info) {
-            // Handle route selection.
-            mSelectedDevice = CastDevice.getFromBundle(info.getExtras());
-
-            // Just display a message for now; In a real app this would be the
-            // hook  to connect to the selected device and launch the receiver
-            // app
-            Log.d(TAG, "onRouteSelected");
-            launchReceiver();
-
-        }
-
-        @Override
-        public void onRouteUnselected(MediaRouter router, MediaRouter.RouteInfo info) {
-            Log.d(TAG, "onRouteUnselected: info=" + info);
-            teardown();
-            mSelectedDevice = null;
+        int errorCode = GooglePlayServicesUtil
+                .isGooglePlayServicesAvailable(this);
+        if (errorCode != ConnectionResult.SUCCESS) {
+            GooglePlayServicesUtil.getErrorDialog(errorCode, this, 0).show();
         }
     }
 
-    /**
-     * Start the receiver app
-     */
-    private void launchReceiver() {
-        try {
-            mCastListener = new Cast.Listener() {
+    private void setSelectedDevice(CastDevice device) {
+        Log.d("setSelectedDevice 1", "setSelectedDevice: " + device);
+        mSelectedDevice = device;
 
-                @Override
-                public void onApplicationDisconnected(int errorCode) {
-                    Log.d(TAG, "application has stopped");
-                    teardown();
-                }
-
-            };
-            // Connect to Google Play services
-            mConnectionCallbacks = new ConnectionCallbacks();
-            mConnectionFailedListener = new ConnectionFailedListener();
-            Cast.CastOptions.Builder apiOptionsBuilder = Cast.CastOptions
-                    .builder(mSelectedDevice, mCastListener);
-            mApiClient = new GoogleApiClient.Builder(this)
-                    .addApi(Cast.API, apiOptionsBuilder.build())
-                    .addConnectionCallbacks(mConnectionCallbacks)
-                    .addOnConnectionFailedListener(mConnectionFailedListener)
-                    .build();
-
-            mApiClient.connect();
-        } catch (Exception e) {
-            Log.e(TAG, "Failed launchReceiver", e);
-        }
-    }
-
-    /**
-     * Google Play services callbacks
-     */
-    private class ConnectionCallbacks implements
-            GoogleApiClient.ConnectionCallbacks {
-        @Override
-        public void onConnected(Bundle connectionHint) {
-            Log.d(TAG, "onConnected");
-
-            if (mApiClient == null) {
-                // We got disconnected while this runnable was pending
-                // execution.
-                return;
-            }
-
+        if (mSelectedDevice != null) {
+            Log.e("Testing  ", "selcted" + mSelectedDevice);
             try {
-                if (mWaitingForReconnect) {
-                    mWaitingForReconnect = false;
+                disconnectApiClient();
+                connectApiClient();
 
-                    // Check if the receiver app is still running
-                    if ((connectionHint != null)
-                            && connectionHint
-                            .getBoolean(Cast.EXTRA_APP_NO_LONGER_RUNNING)) {
-                        Log.d(TAG, "App  is no longer running");
-                        teardown();
-                    } else {
-                        // Re-create the custom message channel
-                        try {
-                            Cast.CastApi.setMessageReceivedCallbacks(
-                                    mApiClient,
-                                    mHelloWorldChannel.getNamespace(),
-                                    mHelloWorldChannel);
-                        } catch (IOException e) {
-                            Log.e(TAG, "Exception while creating channel", e);
-                        }
-                    }
-                } else {
-                    // Launch the receiver app
-                    Cast.CastApi
-                            .launchApplication(mApiClient, APPID, false)
-                            .setResultCallback(
-                                    new ResultCallback<Cast.ApplicationConnectionResult>() {
-                                        @Override
-                                        public void onResult(
-                                                Cast.ApplicationConnectionResult result) {
-                                            Status status = result.getStatus();
-                                            Log.d(TAG,
-                                                    "ApplicationConnectionResultCallback.onResult: statusCode"
-                                                            + status.getStatusCode());
-                                            if (status.isSuccess()) {
-                                                ApplicationMetadata applicationMetadata = result
-                                                        .getApplicationMetadata();
-                                                mSessionId = result
-                                                        .getSessionId();
-                                                String applicationStatus = result
-                                                        .getApplicationStatus();
-                                                boolean wasLaunched = result
-                                                        .getWasLaunched();
-                                                Log.d(TAG,
-                                                        "application name: "
-                                                                + applicationMetadata
-                                                                .getName()
-                                                                + ", status: "
-                                                                + applicationStatus
-                                                                + ", sessionId: "
-                                                                + mSessionId
-                                                                + ", wasLaunched: "
-                                                                + wasLaunched);
-                                                mApplicationStarted = true;
-
-                                                // Create the custom message
-                                                // channel
-                                                mHelloWorldChannel = new HelloWorldChannel();
-                                                try {
-                                                    Cast.CastApi
-                                                            .setMessageReceivedCallbacks(
-                                                                    mApiClient,
-                                                                    mHelloWorldChannel
-                                                                            .getNamespace(),
-                                                                    mHelloWorldChannel);
-                                                } catch (IOException e) {
-                                                    Log.e(TAG,
-                                                            "Exception while creating channel",
-                                                            e);
-                                                }
-
-                                                // set the initial instructions
-                                                // on the receiver
-                                                sendMessage("Senden");
-                                            } else {
-                                                Log.e(TAG,
-                                                        "application could not launch");
-                                                teardown();
-                                            }
-                                        }
-                                    });
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to launch application", e);
-            }
-        }
-
-        @Override
-        public void onConnectionSuspended(int cause) {
-            Log.d(TAG, "onConnectionSuspended");
-            mWaitingForReconnect = true;
-        }
-    }
-
-    /**
-     * Google Play services callbacks
-     */
-    private class ConnectionFailedListener implements
-            GoogleApiClient.OnConnectionFailedListener {
-        @Override
-        public void onConnectionFailed(ConnectionResult result) {
-            Log.e(TAG, "onConnectionFailed ");
-
-            teardown();
-        }
-    }
-
-    /**
-     * Tear down the connection to the receiver
-     */
-    private void teardown() {
-        Log.d(TAG, "teardown");
-        if (mApiClient != null) {
-            if (mApplicationStarted) {
-                if (mApiClient.isConnected()  || mApiClient.isConnecting()) {
-                    try {
-                        Cast.CastApi.stopApplication(mApiClient, mSessionId);
-                        if (mHelloWorldChannel != null) {
-                            Cast.CastApi.removeMessageReceivedCallbacks(
-                                    mApiClient,
-                                    mHelloWorldChannel.getNamespace());
-                            mHelloWorldChannel = null;
-                        }
-                    } catch (IOException e) {
-                        Log.e(TAG, "Exception while removing channel", e);
-                    }
-                    mApiClient.disconnect();
-                }
-                mApplicationStarted = false;
-            }
-            mApiClient = null;
-        }
-        mSelectedDevice = null;
-        mWaitingForReconnect = false;
-        mSessionId = null;
-    }
-
-    /**
-     * Send a text message to the receiver
-     *
-     * @param message
-     */
-    private void sendMessage(String message) {
-        if (mApiClient != null && mHelloWorldChannel != null) {
-            try {
-
-                Log.e(TAG, "Sending message: " + message);
-                Play();
-                Cast.CastApi.sendMessage(mApiClient,
-                        mHelloWorldChannel.getNamespace(), message)
-                        .setResultCallback(new ResultCallback<Status>() {
-                            @Override
-                            public void onResult(Status result) {
-                                if (!result.isSuccess()) {
-                                    Log.e(TAG, "Sending message failed");
-                                }
-                            }
-                        });
-            } catch (Exception e) {
-                Log.e(TAG, "Exception while sending message", e);
+                Cast.CastOptions.builder(mSelectedDevice,
+                        mCastListener)
+                        .setVerboseLoggingEnabled(true)
+                        .build();
+            } catch (IllegalStateException e) {
+                Log.w("", "Exception while connecting API client", e);
+                disconnectApiClient();
             }
         } else {
-            Toast.makeText(this, message, Toast.LENGTH_SHORT)
-                    .show();
+            if (mApiClient != null) {
+                if (mApiClient.isConnected()) {
+                }
+                disconnectApiClient();
+            }
+            mRouter.selectRoute(mRouter.getDefaultRoute());
         }
     }
 
-    /**
-     * Custom message channel
-     */
-    class HelloWorldChannel implements Cast.MessageReceivedCallback {
+    private void connectApiClient() {
+        Log.e("Connection checking", " Inside Connect Status Before");
+        Cast.CastOptions apiOptions = Cast.CastOptions.builder(mSelectedDevice,
+                mCastListener).build();
+        mApiClient = new GoogleApiClient.Builder(this)
+                .addApi(Cast.API, apiOptions)
+                .addConnectionCallbacks(mConnectionCallbacks)
+                .addOnConnectionFailedListener(mConnectionFailedListener)
+                .build();
+        mApiClient.connect();
+        Log.e("Connection checking", mApiClient.isConnected() + "Status");
+    }
 
-        /**
-         * @return custom namespace
-         */
-        public String getNamespace() {
-            return "urn:x-cast:Namespace";
-        }
-
-        /*
-         * Receive message from the receiver app
-         */
-        @Override
-        public void onMessageReceived(CastDevice castDevice, String namespace,
-                                      String message) {
-            Log.d(TAG, "onMessageReceived: " + message);
+    private void disconnectApiClient() {
+        if (mApiClient != null) {
+            mApiClient.disconnect();
+            mApiClient = null;
         }
     }
 
@@ -542,11 +320,10 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
 
         @Override
         public void onApplicationStatusChanged() {
-//			Toast.makeText(CastActivity.this, "testing", Toast.LENGTH_SHORT).show();
+
             if (mApiClient != null) {
-                Log.e("",
-                        "onApplicationStatusChanged: "
-                                + Cast.CastApi.getApplicationStatus(mApiClient));
+                Log.e("","onApplicationStatusChanged: "+ Cast.CastApi.getApplicationStatus(mApiClient));
+                Toast.makeText(getApplicationContext(), Cast.CastApi.getApplicationStatus(mApiClient), Toast.LENGTH_SHORT).show();
             }
         }
 
@@ -567,6 +344,163 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
                         mRemoteMediaPlayer.getNamespace());
             } catch (IOException e) {
                 Log.w("", "Exception while launching application", e);
+            }
+        }
+    }
+
+    private class ConnectionFailedListener implements
+            GoogleApiClient.OnConnectionFailedListener {
+        @Override
+        public void onConnectionFailed(ConnectionResult result) {
+            Log.e("Testing 8", "onConnectionFailed  Connection Call back");
+            setSelectedDevice(null);
+        }
+    }
+
+    private class ConnectionCallbacks implements
+            GoogleApiClient.ConnectionCallbacks {
+
+        @Override
+        public void onConnected(Bundle connectionHint) {
+            Log.e("Testing 2", "onConnected Connection Call back");
+            Cast.CastApi.launchApplication(mApiClient, APP_ID)
+                    .setResultCallback(new ConnectionResultCallback());
+            Play();
+        }
+
+        @Override
+        public void onConnectionSuspended(int cause) {
+            Log.e("Testing 2", "onConnectionSuspended");
+            mWaitingForReconnect = true;
+        }
+
+    }
+
+    private final class ConnectionResultCallback implements
+            ResultCallback<Cast.ApplicationConnectionResult> {
+        @Override
+        public void onResult(Cast.ApplicationConnectionResult result) {
+            Status status = result.getStatus();
+            ApplicationMetadata appMetaData = result.getApplicationMetadata();
+
+            if (status.isSuccess()) {
+                Log.e("Testing 3", "ConnectionResultCallback");
+                ApplicationMetadata applicationMetadata = result.getApplicationMetadata();
+                String sessionId = result.getSessionId();
+                String applicationStatus = result.getApplicationStatus();
+                boolean wasLaunched = result.getWasLaunched();
+
+                try {
+                    Cast.CastApi.setMessageReceivedCallbacks(mApiClient,
+                            mRemoteMediaPlayer.getNamespace(),
+                            mRemoteMediaPlayer);
+                    Play();
+                    mRemoteMediaPlayer.requestStatus(mApiClient).setResultCallback(new ResultCallback<RemoteMediaPlayer.MediaChannelResult>() {
+                        @Override
+                        public void onResult(RemoteMediaPlayer.MediaChannelResult mediaChannelResult) {
+                            Log.e("MediaStatus", mediaChannelResult.getStatus().toString());
+                        }
+                    });
+                    Log.e("Connecting", "mRemoteMediaPlayer");
+                } catch (IOException e) {
+                    Log.e("Testing Exception", "ConnectionResultCallback");
+                }
+            }
+        }
+    }
+
+    private void sendMessage(String message) {
+        if (mApiClient != null && mHelloWorldChannel != null) {
+            try {
+                Cast.CastApi.sendMessage(mApiClient,
+                        mHelloWorldChannel.getNamespace(), message)
+                        .setResultCallback(new ResultCallback<Status>() {
+                            @Override
+                            public void onResult(Status result) {
+                                if (!result.isSuccess()) {
+                                }
+                            }
+                        });
+            } catch (Exception e) {
+            }
+        }
+    }
+
+    private void Play() {
+        try {
+            PendingResult<RemoteMediaPlayer.MediaChannelResult> _Status = mRemoteMediaPlayer.requestStatus(mApiClient);
+            if(!_Status.isCanceled()) {
+                MediaMetadata mediaMetadata = new MediaMetadata(
+                        MediaMetadata.MEDIA_TYPE_MOVIE);
+                mediaMetadata.putString(MediaMetadata.KEY_TITLE, "My video");
+                MediaInfo mediaInfo = new MediaInfo.Builder(
+                        "https://www.youtube.com/watch?v=ZLA2S5wQO2E")
+                        .setContentType("video/mp4")
+                        .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+                        .setMetadata(mediaMetadata).build();
+
+                mRemoteMediaPlayer.load(mApiClient, mediaInfo, true)
+                        .setResultCallback(new ResultCallback<RemoteMediaPlayer.MediaChannelResult>() {
+                            @Override
+                            public void onResult(RemoteMediaPlayer.MediaChannelResult result) {
+                                Log.d(TAG, result.getStatus().toString());
+                                if (result.getStatus().isSuccess()) {
+                                    Log.d(TAG, "Media loaded successfully");
+                                } else {
+                                    Log.d(TAG, result.getStatus().toString());
+                                }
+                            }
+                        });
+            }
+
+
+        } catch (IllegalStateException e) {
+            Log.v("IllegalStateException", String.valueOf(e));
+        } catch (Exception e) {
+            Log.v("Exception", String.valueOf(e));
+        }
+    }
+
+    private void startPlay(){
+        mRemoteMediaPlayer.play(mApiClient);
+    }
+
+    private void StartLink(String link) {
+        mHelloWorldChannel.sendMessage(mApiClient, link);
+    }
+
+    public class HelloWorldChannel implements Cast.MessageReceivedCallback {
+
+        private static final String NAMESPACE = "urn:x-cast:com.google.cast.sample.helloworld";
+
+        public String getNamespace() {
+            return NAMESPACE;
+        }
+
+        @Override
+        public void onMessageReceived(CastDevice castDevice, String namespace,
+                                      String message) {
+            Log.d("", "onMessageReceived: " + message);
+        }
+
+        public void sendMessage(GoogleApiClient apiClient, String message) {
+            Cast.CastApi.sendMessage(apiClient, NAMESPACE, message).setResultCallback(
+                    new SendMessageResultCallback(message));
+        }
+
+        private class SendMessageResultCallback implements ResultCallback<Status> {
+            String mMessage;
+
+            SendMessageResultCallback(String message) {
+                mMessage = message;
+            }
+
+            @Override
+            public void onResult(Status result) {
+                if (!result.isSuccess()) {
+                    Log.d("", "Failed to send message. statusCode: " + result.getStatusCode()
+                            + " message: " + mMessage);
+                }
             }
         }
     }
