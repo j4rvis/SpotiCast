@@ -44,7 +44,7 @@ import java.util.ArrayList;
 public class TracksActivity extends ActionBarActivity implements TrackListFilled, PlayerNotificationCallback, ConnectionStateCallback {
 
     private static final String TAG = MainActivity.class.getSimpleName();
-    private static final String APP_ID = "CC2ECB12";
+    private static final String APP_ID = "381E888C";
 
     private ListView mListViewTracks;
     private Spotify mSpotify;
@@ -90,9 +90,17 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
                 .setOnStatusUpdatedListener(new RemoteMediaPlayer.OnStatusUpdatedListener() {
                     @Override
                     public void onStatusUpdated() {
-                        MediaStatus mediaStatus = mRemoteMediaPlayer
-                                .getMediaStatus();
-                        boolean isPlaying = mediaStatus.getPlayerState() == MediaStatus.PLAYER_STATE_PLAYING;
+                        MediaStatus mediaStatus;
+                        MediaInfo mediaInfo;
+                        if(mRemoteMediaPlayer!=null){
+                            mediaStatus = mRemoteMediaPlayer.getMediaStatus();
+                            mediaInfo = mRemoteMediaPlayer.getMediaInfo();
+                            if(mediaStatus!=null){
+                                //you could even check if mediaStatus.getPlayerState() is not null here
+                                //before the next line of code
+                                boolean RemoteisPlaying = mediaStatus.getPlayerState() == MediaStatus.PLAYER_STATE_PLAYING;
+                            }
+                        }
                     }
                 });
 
@@ -104,8 +112,6 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
                         MediaMetadata metadata = mediaInfo.getMetadata();
                     }
                 });
-
-
     }
 
 
@@ -212,7 +218,7 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
 
     public void resumePlaying(View view) {
        // mPlayer.resume();
-        Play();
+        //Play();
     }
 
     // Add the callback on start to tell the media router what kinds of routes
@@ -244,10 +250,8 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
             CastDevice device = CastDevice.getFromBundle(route.getExtras());
             setSelectedDevice(device);
 
-            //setSelectedDevice(device);
             String routeId = route.getId();
             Toast.makeText(getApplicationContext(), "RoutedId " + routeId, Toast.LENGTH_SHORT).show();
-
         }
 
         @Override
@@ -255,14 +259,13 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
             super.onRouteUnselected(router, route);
             mSelectedDevice = null;
         }
-
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        int errorCode = GooglePlayServicesUtil
-                .isGooglePlayServicesAvailable(this);
+        int errorCode = GooglePlayServicesUtil.isGooglePlayServicesAvailable(this);
+
         if (errorCode != ConnectionResult.SUCCESS) {
             GooglePlayServicesUtil.getErrorDialog(errorCode, this, 0).show();
         }
@@ -298,13 +301,14 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
 
     private void connectApiClient() {
         Log.e("Connection checking", " Inside Connect Status Before");
-        Cast.CastOptions apiOptions = Cast.CastOptions.builder(mSelectedDevice,
-                mCastListener).build();
+        Cast.CastOptions apiOptions = Cast.CastOptions.builder(mSelectedDevice, mCastListener).build();
+
         mApiClient = new GoogleApiClient.Builder(this)
                 .addApi(Cast.API, apiOptions)
                 .addConnectionCallbacks(mConnectionCallbacks)
                 .addOnConnectionFailedListener(mConnectionFailedListener)
                 .build();
+
         mApiClient.connect();
         Log.e("Connection checking", mApiClient.isConnected() + "Status");
     }
@@ -320,7 +324,6 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
 
         @Override
         public void onApplicationStatusChanged() {
-
             if (mApiClient != null) {
                 Log.e("","onApplicationStatusChanged: "+ Cast.CastApi.getApplicationStatus(mApiClient));
                 Toast.makeText(getApplicationContext(), Cast.CastApi.getApplicationStatus(mApiClient), Toast.LENGTH_SHORT).show();
@@ -348,8 +351,7 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
         }
     }
 
-    private class ConnectionFailedListener implements
-            GoogleApiClient.OnConnectionFailedListener {
+    private class ConnectionFailedListener implements GoogleApiClient.OnConnectionFailedListener {
         @Override
         public void onConnectionFailed(ConnectionResult result) {
             Log.e("Testing 8", "onConnectionFailed  Connection Call back");
@@ -365,7 +367,9 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
             Log.e("Testing 2", "onConnected Connection Call back");
             Cast.CastApi.launchApplication(mApiClient, APP_ID)
                     .setResultCallback(new ConnectionResultCallback());
-            Play();
+            //Play();
+            //StartLink("https://www.google.de");
+            sendMessage("Hi");
         }
 
         @Override
@@ -373,11 +377,9 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
             Log.e("Testing 2", "onConnectionSuspended");
             mWaitingForReconnect = true;
         }
-
     }
 
-    private final class ConnectionResultCallback implements
-            ResultCallback<Cast.ApplicationConnectionResult> {
+    private final class ConnectionResultCallback implements ResultCallback<Cast.ApplicationConnectionResult> {
         @Override
         public void onResult(Cast.ApplicationConnectionResult result) {
             Status status = result.getStatus();
@@ -471,7 +473,7 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
 
     public class HelloWorldChannel implements Cast.MessageReceivedCallback {
 
-        private static final String NAMESPACE = "urn:x-cast:com.google.cast.sample.helloworld";
+        private static final String NAMESPACE = "urn:x-cast:kolo.de.spotitest";
 
         public String getNamespace() {
             return NAMESPACE;
