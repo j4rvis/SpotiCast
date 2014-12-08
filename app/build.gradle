@@ -13,7 +13,7 @@ android {
     }
     buildTypes {
         release {
-            runProguard false
+            minifyEnabled  false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
@@ -24,5 +24,5 @@ dependencies {
     compile project(':spotifysdk-1.0.0-beta4')
     compile 'com.google.android.gms:play-services:6.1.+'
     compile 'com.android.support:mediarouter-v7:21.0.+'
-    compile 'com.android.support:appcompat-v7:18.0.+'
+    compile 'com.android.support:appcompat-v7:21.0.+'
 }
