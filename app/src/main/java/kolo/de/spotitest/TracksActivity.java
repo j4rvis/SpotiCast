@@ -44,7 +44,7 @@ import java.util.ArrayList;
 public class TracksActivity extends ActionBarActivity implements TrackListFilled, PlayerNotificationCallback, ConnectionStateCallback {
 
     private static final String TAG = MainActivity.class.getSimpleName();
-    private static final String APP_ID = "381E888C";
+    private static final String APP_ID = "CC2ECB12";
 
     private ListView mListViewTracks;
     private Spotify mSpotify;
@@ -64,8 +64,6 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
     Button play;
     Button play2;
 
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -77,7 +75,6 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
 
         mRouter = MediaRouter.getInstance(getApplicationContext());
         mSelector = new MediaRouteSelector.Builder()
-                .addControlCategory(MediaControlIntent.CATEGORY_LIVE_AUDIO)
                 .addControlCategory(MediaControlIntent.CATEGORY_REMOTE_PLAYBACK)
                 .build();
         mCallback = new MyCallback();
@@ -231,6 +228,7 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
                 MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY);
 
         MediaRouter.RouteInfo route = mRouter.updateSelectedRoute(mSelector);
+        Log.e("onStart", "" + route.isConnecting());
         // do something with the route...
     }
 
@@ -276,7 +274,7 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
         mSelectedDevice = device;
 
         if (mSelectedDevice != null) {
-            Log.e("Testing  ", "selcted" + mSelectedDevice);
+            Log.e("Testing  ", "selected" + mSelectedDevice);
             try {
                 disconnectApiClient();
                 connectApiClient();
@@ -300,7 +298,7 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
     }
 
     private void connectApiClient() {
-        Log.e("Connection checking", " Inside Connect Status Before");
+        Log.e("Connection checking", mSelectedDevice.getFriendlyName() + " " + mSelectedDevice.getDeviceId());
         Cast.CastOptions apiOptions = Cast.CastOptions.builder(mSelectedDevice, mCastListener).build();
 
         mApiClient = new GoogleApiClient.Builder(this)
@@ -309,8 +307,9 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
                 .addOnConnectionFailedListener(mConnectionFailedListener)
                 .build();
 
+
         mApiClient.connect();
-        Log.e("Connection checking", mApiClient.isConnected() + "Status");
+        Log.e("Connection checking", mApiClient.isConnected() + " Status");
     }
 
     private void disconnectApiClient() {
@@ -326,7 +325,6 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
         public void onApplicationStatusChanged() {
             if (mApiClient != null) {
                 Log.e("","onApplicationStatusChanged: "+ Cast.CastApi.getApplicationStatus(mApiClient));
-                Toast.makeText(getApplicationContext(), Cast.CastApi.getApplicationStatus(mApiClient), Toast.LENGTH_SHORT).show();
             }
         }
 
@@ -354,7 +352,7 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
     private class ConnectionFailedListener implements GoogleApiClient.OnConnectionFailedListener {
         @Override
         public void onConnectionFailed(ConnectionResult result) {
-            Log.e("Testing 8", "onConnectionFailed  Connection Call back");
+            Log.e("onConnectionFailed", result.getErrorCode() + "");
             setSelectedDevice(null);
         }
     }
@@ -364,12 +362,12 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
 
         @Override
         public void onConnected(Bundle connectionHint) {
-            Log.e("Testing 2", "onConnected Connection Call back");
+            Log.e("onConnected", "");
             Cast.CastApi.launchApplication(mApiClient, APP_ID)
                     .setResultCallback(new ConnectionResultCallback());
-            //Play();
+            Play();
             //StartLink("https://www.google.de");
-            sendMessage("Hi");
+            //sendMessage("Hi");
         }
 
         @Override
@@ -429,7 +427,7 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
     }
 
     private void Play() {
-        try {
+
             PendingResult<RemoteMediaPlayer.MediaChannelResult> _Status = mRemoteMediaPlayer.requestStatus(mApiClient);
             if(!_Status.isCanceled()) {
                 MediaMetadata mediaMetadata = new MediaMetadata(
@@ -454,13 +452,6 @@ public class TracksActivity extends ActionBarActivity implements TrackListFilled
                             }
                         });
             }
-
-
-        } catch (IllegalStateException e) {
-            Log.v("IllegalStateException", String.valueOf(e));
-        } catch (Exception e) {
-            Log.v("Exception", String.valueOf(e));
-        }
     }
 
     private void startPlay(){

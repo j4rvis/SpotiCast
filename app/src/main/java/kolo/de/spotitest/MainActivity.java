@@ -93,8 +93,10 @@ public class MainActivity extends Activity implements ConnectionStateCallback, P
         mListViewPlaylists.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Intent _Intent = new Intent(getApplicationContext(), TracksActivity.class);
+                /*Intent _Intent = new Intent(getApplicationContext(), TracksActivity.class);
                 _Intent.putExtra("selected_list", list.get(position));
+                startActivity(_Intent);*/
+                Intent _Intent = new Intent(getApplicationContext(), TestActivity.class);
                 startActivity(_Intent);
             }
         });
