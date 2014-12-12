@@ -1,7 +1,8 @@
-package kolo.de.spotitest;
+package kolo.de.spotitest.interfaces;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
+
+import kolo.de.spotitest.music_models.Playlist;
 
 /**
  * Created by Patrick on 26.10.2014.

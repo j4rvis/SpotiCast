@@ -1,8 +1,9 @@
-package kolo.de.spotitest;
+package kolo.de.spotitest.user;
 
-import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -10,15 +11,22 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 
+import kolo.de.spotitest.interfaces.PlaylistFilled;
+import kolo.de.spotitest.interfaces.RequestReceveied;
+import kolo.de.spotitest.request.RequestTask;
+import kolo.de.spotitest.music_models.Playlist;
+
 /**
  * Created by Patrick on 26.10.2014.
  */
-public class User implements RequestReceveied{
+public class User implements RequestReceveied {
 
     private Context mContext;
     private String mAccessToken;
     private String mUserData;
     private String mUserPlaylists;
+
+    private final String ACCESSTOKEN = "accesstoken";
 
     private String mUsername;
     private String mUserID;
@@ -28,20 +36,37 @@ public class User implements RequestReceveied{
 
     private ProgressDialog mDialog;
 
+    SharedPreferences mPreferences;
+
     private static final String CURRENT_USER_ENDPOINT = "https://api.spotify.com/v1/me";
     private static final String USER_PLAYLISTS_ENDPOINT = "https://api.spotify.com/v1/users/{user_id}/playlists";
 
-    public User(Context context, String accessToken){
+    public User(Context context){
         this.mContext = context;
-        this.mAccessToken = accessToken;
+        mPreferences = PreferenceManager.getDefaultSharedPreferences(context);
 
         mDialog = new ProgressDialog(context);
         mDialog.setCancelable(false);
-
-        getUserData();
     }
 
-    private void getUserData() {
+    public User(Context context, String accessToken){
+        this(context);
+        this.mAccessToken = accessToken;
+
+        saveAccessToken();
+    }
+
+    private void saveAccessToken() {
+        SharedPreferences.Editor _PreferenceEditor = mPreferences.edit();
+        _PreferenceEditor.putString(ACCESSTOKEN, mAccessToken);
+        _PreferenceEditor.commit();
+    }
+
+    public String getAccessToken(){
+        return mPreferences.getString(ACCESSTOKEN, null);
+    }
+
+    public void getUserData() {
         mDialog.setTitle("Benutzerdaten holen");
         mDialog.show();
         new RequestTask(this, mAccessToken, RequestType.USERDATA).execute(CURRENT_USER_ENDPOINT);
@@ -98,10 +123,6 @@ public class User implements RequestReceveied{
     @Override
     public void OnTrackReveived(String xResult) {
 
-    }
-
-    public String getAccessToken(){
-        return this.mAccessToken;
     }
 
     public String getID(){

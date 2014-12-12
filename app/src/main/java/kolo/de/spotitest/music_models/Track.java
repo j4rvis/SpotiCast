@@ -1,4 +1,4 @@
-package kolo.de.spotitest;
+package kolo.de.spotitest.music_models;
 
 import android.graphics.Bitmap;
 

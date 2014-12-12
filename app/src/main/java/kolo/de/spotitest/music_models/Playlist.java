@@ -1,5 +1,6 @@
-package kolo.de.spotitest;
+package kolo.de.spotitest.music_models;
 
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -9,6 +10,12 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+
+import kolo.de.spotitest.interfaces.RequestReceveied;
+import kolo.de.spotitest.request.RequestTask;
+import kolo.de.spotitest.interfaces.TrackListFilled;
+import kolo.de.spotitest.user.User;
+import kolo.de.spotitest.activities.MainActivity;
 
 /**
  * Created by Patrick on 26.10.2014.
@@ -23,6 +30,7 @@ public class Playlist implements RequestReceveied, Parcelable{
     private ArrayList<Track> mTrackList;
 
     private final static String TRACKS_ENDPOINT = "https://api.spotify.com/v1/users/{user_id}/playlists/{playlist_id}";
+    private ProgressDialog mDialog;
 
     public Playlist(String id, String name, User user){
         this.mID = id;
@@ -40,10 +48,13 @@ public class Playlist implements RequestReceveied, Parcelable{
 
     public void getTracks(Context context){
         this.mContext = context;
-        String _FinalURL;
-        _FinalURL = TRACKS_ENDPOINT.replace("{user_id}", MainActivity.CurrentUser.getID());
+
+        String _FinalURL = TRACKS_ENDPOINT.replace("{user_id}", mUser.getID());
         _FinalURL = _FinalURL.replace("{playlist_id}",mID);
-        new RequestTask(this, MainActivity.CurrentUser.getAccessToken(), User.RequestType.TRACK).execute(_FinalURL);
+
+        initProgessDialog(context);
+
+        new RequestTask(this, mUser.getAccessToken(), User.RequestType.TRACK).execute(_FinalURL);
     }
 
     public String getName() {
@@ -54,6 +65,12 @@ public class Playlist implements RequestReceveied, Parcelable{
         return mID;
     }
 
+    private void initProgessDialog(Context context){
+        mDialog = new ProgressDialog(context);
+        mDialog.setTitle("Tracks holen");
+        mDialog.show();
+    }
+
     @Override
     public void OnUserDatatReveived(String xResult) {}
 
@@ -62,6 +79,7 @@ public class Playlist implements RequestReceveied, Parcelable{
 
     @Override
     public void OnTrackReveived(String xResult) {
+        mDialog.cancel();
 
         if(xResult != null){
             try {
