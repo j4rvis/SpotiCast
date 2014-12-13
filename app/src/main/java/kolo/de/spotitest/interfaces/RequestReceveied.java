@@ -1,4 +1,4 @@
-package kolo.de.spotitest;
+package kolo.de.spotitest.interfaces;
 
 /**
  * Created by Patrick on 25.10.2014.

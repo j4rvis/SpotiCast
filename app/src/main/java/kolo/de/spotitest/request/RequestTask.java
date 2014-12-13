@@ -1,4 +1,4 @@
-package kolo.de.spotitest;
+package kolo.de.spotitest.request;
 
 import android.content.Context;
 import android.os.AsyncTask;
@@ -11,6 +11,9 @@ import org.apache.http.impl.client.DefaultHttpClient;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+
+import kolo.de.spotitest.music_models.Playlist;
+import kolo.de.spotitest.user.User;
 
 /**
  * Created by Patrick on 25.10.2014.

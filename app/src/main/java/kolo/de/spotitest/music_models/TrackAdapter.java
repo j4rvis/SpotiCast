@@ -1,4 +1,4 @@
-package kolo.de.spotitest;
+package kolo.de.spotitest.music_models;
 
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -8,6 +8,9 @@ import android.widget.BaseAdapter;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+
+import kolo.de.spotitest.R;
+import kolo.de.spotitest.music_models.Track;
 
 /**
  * Created by Patrick on 26.10.2014.
