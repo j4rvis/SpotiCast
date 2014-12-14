@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="listitem_divider">#BDBDBD</color>
+    <color name="main_actionbar_color">#795548</color>
+    <color name="color_accent">#D7CCC8</color>
+    <color name="color_select">#A1887F</color>
+    <color name="color_text">#1B5E20</color>
+    <color name="color_listitem_background">#EFEBE9</color>
+</resources>

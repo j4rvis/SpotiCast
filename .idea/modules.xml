@@ -2,10 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/SpotiCast.iml" filepath="$PROJECT_DIR$/SpotiCast.iml" />
-      <module fileurl="file://$PROJECT_DIR$/Spotitest.iml" filepath="$PROJECT_DIR$/Spotitest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/SpotiCast2.iml" filepath="$PROJECT_DIR$/SpotiCast2.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spotifysdk-1.0.0-beta4/spotifysdk-1.0.0-beta4.iml" filepath="$PROJECT_DIR$/spotifysdk-1.0.0-beta4/spotifysdk-1.0.0-beta4.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spotifysdk-1.0.0-beta6/spotifysdk-1.0.0-beta6.iml" filepath="$PROJECT_DIR$/spotifysdk-1.0.0-beta6/spotifysdk-1.0.0-beta6.iml" />
     </modules>
   </component>
 </project>

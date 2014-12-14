@@ -1,8 +1,11 @@
 <resources>
 
-    <!-- Base application theme. -->
-    <style name="AppTheme" parent="android:Theme.Holo.Light.DarkActionBar">
-        <!-- Customize your theme here. -->
+    !-- the theme applied to the application or activity -->
+    <style name="AppTheme"
+        parent="@style/Theme.AppCompat.Light">
+        <item name="colorPrimary">@color/main_actionbar_color</item>
+        <item name="colorAccent">@color/color_accent</item>
+        <item name="android:textColorPrimary">@android:color/white</item>
     </style>
 
 </resources>
