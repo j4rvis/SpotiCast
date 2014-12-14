@@ -2,6 +2,7 @@ package spoticast.music_models;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.AsyncTask;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -28,12 +29,12 @@ public class Track {
 
     public Track(JSONObject trackObject){
 
-        //https://play.spotify.com/user/1157211646/playlist/2tgQdTqZ1mSReLWjznc2cL?play=true&utm_source=open.spotify.com&utm_medium=open
         try {
             this.mName = trackObject.getString("name");
             this.mURI = trackObject.getString("uri");
             this.mDuration = trackObject.getLong("duration_ms");
             getArtistsFromJSON(trackObject);
+            getAlbumDetailsFromJSON(trackObject);
         } catch (JSONException e) {}
     }
 
@@ -64,22 +65,10 @@ public class Track {
             final JSONArray _AlbumImages = _AlbumObject.getJSONArray("images");
             for (int i = 0; i < _AlbumImages.length(); i++){
                 final int _Counter = i;
-                if(_AlbumImages.getJSONObject(i).getString("width").equals("64")){
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                mAlbumcover = getBitmapFromURL(_AlbumImages.getJSONObject(_Counter).getString("url"));
-                                Log.e("Artist", mAlbumcover.toString());
-                            } catch (JSONException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }.run();
+                if(_AlbumImages.getJSONObject(i).getString("width").equals("300")){
+                    new BitmapFromUrl().execute(_AlbumImages.getJSONObject(_Counter).getString("url"));
                 }
             }
-
-            Log.e("Artist", this.mAlbumname);
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -97,18 +86,43 @@ public class Track {
         return this.mArtists;
     }
 
-    private static Bitmap getBitmapFromURL(String src) {
-        try {
-            URL url = new URL(src);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setDoInput(true);
-            connection.connect();
-            InputStream input = connection.getInputStream();
-            Bitmap myBitmap = BitmapFactory.decodeStream(input);
-            return myBitmap;
-        } catch (IOException e) {
-            // Log exception
-            return null;
+    public Bitmap getAlbumcover() {
+        return mAlbumcover;
+    }
+
+    public String getAlbumname() {
+        return mAlbumname;
+    }
+
+    private class BitmapFromUrl extends AsyncTask<String, Void, Bitmap>{
+
+        @Override
+        protected Bitmap doInBackground(String... params) {
+            return getBitmapFromURL(params[0]);
+        }
+
+        @Override
+        protected void onPostExecute(Bitmap bitmap) {
+            if(bitmap != null){
+                mAlbumcover = bitmap;
+            }
+        }
+
+        private Bitmap getBitmapFromURL(final String src) {
+            Bitmap _ReturnBitmap = null;
+
+                try {
+                    URL url = new URL(src);
+                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                    connection.setDoInput(true);
+                    connection.connect();
+                    InputStream input = connection.getInputStream();
+                    _ReturnBitmap = BitmapFactory.decodeStream(input);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+            return _ReturnBitmap;
         }
     }
 }

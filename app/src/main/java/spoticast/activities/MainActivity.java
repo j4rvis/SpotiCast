@@ -16,6 +16,7 @@ import android.support.v7.media.MediaRouter;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 
 import com.google.android.gms.cast.Cast;
 import com.google.android.gms.cast.CastDevice;
@@ -28,7 +29,11 @@ import com.google.android.gms.common.api.Status;
 import com.spotify.sdk.android.Spotify;
 import com.spotify.sdk.android.authentication.AuthenticationResponse;
 import com.spotify.sdk.android.authentication.SpotifyAuthentication;
+import com.spotify.sdk.android.playback.Config;
 import com.spotify.sdk.android.playback.ConnectionStateCallback;
+import com.spotify.sdk.android.playback.Player;
+import com.spotify.sdk.android.playback.PlayerNotificationCallback;
+import com.spotify.sdk.android.playback.PlayerState;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -41,7 +46,7 @@ import spoticast.music_models.Track;
 import spoticast.user.User;
 
 
-public class MainActivity extends ActionBarActivity implements ConnectionStateCallback ,PlaylistFilled, TrackListFilled, PlaylistFragment.OnPlaylistSelectedListener, TracklistFagment.OnTrackSelectedListenerListener {
+public class MainActivity extends ActionBarActivity implements Player.InitializationObserver, ConnectionStateCallback ,PlaylistFilled, TrackListFilled, PlaylistFragment.OnPlaylistSelectedListener, TracklistFagment.OnTrackSelectedListenerListener, PlayerNotificationCallback {
 
     private static final String CLIENT_ID = "0bd07f103e564b0386a5ba1124a565ba";
     private static final String REDIRECT_URI = "koloo.de://callback";
@@ -55,6 +60,7 @@ public class MainActivity extends ActionBarActivity implements ConnectionStateCa
     private User mCurrentUser;
     private PlaylistFragment mPlaylistFragment;
     private TracklistFagment mTracklistFragment;
+    private TrackDetailedFragment mTrackdetailedFragment;
     private Fragment mCurrentFragment;
 
     private final Cast.Listener castClientListener = new Cast.Listener(){
@@ -84,7 +90,6 @@ public class MainActivity extends ActionBarActivity implements ConnectionStateCa
     };
 
     private final ResultCallback<Cast.ApplicationConnectionResult> connectionResultCallback = new ResultCallback<Cast.ApplicationConnectionResult>(){
-
         @Override
         public void onResult(Cast.ApplicationConnectionResult result){
             Status status = result.getStatus();
@@ -171,6 +176,7 @@ public class MainActivity extends ActionBarActivity implements ConnectionStateCa
     private GoogleApiClient apiClient;
 
     private boolean applicationStarted;
+    public Player mPlayer;
 
 
     @Override
@@ -186,10 +192,13 @@ public class MainActivity extends ActionBarActivity implements ConnectionStateCa
 
         mPlaylistFragment = new PlaylistFragment(mCurrentUser);
         mTracklistFragment = new TracklistFagment(mCurrentUser);
+        mTrackdetailedFragment = new TrackDetailedFragment();
 
         getFragmentManager().beginTransaction().add(R.id.fragment_container, mPlaylistFragment).commit();
         getFragmentManager().beginTransaction().add(R.id.fragment_container, mTracklistFragment).commit();
+        getFragmentManager().beginTransaction().add(R.id.fragment_container, mTrackdetailedFragment).commit();
         getFragmentManager().beginTransaction().hide(mTracklistFragment).commit();
+        getFragmentManager().beginTransaction().hide(mTrackdetailedFragment).commit();
 
         this.setCurrentFragment(mPlaylistFragment);
 
@@ -210,6 +219,10 @@ public class MainActivity extends ActionBarActivity implements ConnectionStateCa
             AuthenticationResponse response = SpotifyAuthentication.parseOauthResponse(uri);
             mCurrentUser = new User(this, response.getAccessToken());
             mCurrentUser.getUserData();
+
+            Config _PlayerConfig = new Config(this, response.getAccessToken(), CLIENT_ID);
+            Spotify _SpotifyPlayer = new Spotify();
+            mPlayer = _SpotifyPlayer.getPlayer(_PlayerConfig, this, this);
         }
     }
 
@@ -218,11 +231,17 @@ public class MainActivity extends ActionBarActivity implements ConnectionStateCa
         if(mCurrentFragment instanceof PlaylistFragment){
             super.onBackPressed();
         }
-        else{
+        else if(mCurrentFragment instanceof TracklistFagment){
             getFragmentManager().beginTransaction().hide(mTracklistFragment).commit();
-            getFragmentManager().beginTransaction().show( mPlaylistFragment).commit();
+            getFragmentManager().beginTransaction().show(mPlaylistFragment).commit();
+            setCurrentFragment(mPlaylistFragment);
+            setActionbarText("");
         }
-        setActionbarText("");
+        else if(mCurrentFragment instanceof TrackDetailedFragment){
+            getFragmentManager().beginTransaction().hide(mTrackdetailedFragment).commit();
+            getFragmentManager().beginTransaction().show(mTracklistFragment).commit();
+            setCurrentFragment(mTracklistFragment);
+        }
     }
 
     @Override
@@ -333,15 +352,18 @@ public class MainActivity extends ActionBarActivity implements ConnectionStateCa
     @Override
     public void onTrackSelected(Track xSelectedTrack) {
         sendMessage(xSelectedTrack.getName());
-        Log.d("SendMessage", xSelectedTrack.getName());
+
+        getFragmentManager().beginTransaction().hide(mTracklistFragment).commit();
+        getFragmentManager().beginTransaction().show(mTrackdetailedFragment).commit();
+        mTrackdetailedFragment.setSelectedTrack(xSelectedTrack);
+        setCurrentFragment(mTrackdetailedFragment);
     }
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
     //Chromecast Funktionen
 
-    private void sendMessage(String message)
-    {
+    private void sendMessage(String message){
         if (apiClient != null)
         {
             try
@@ -422,5 +444,37 @@ public class MainActivity extends ActionBarActivity implements ConnectionStateCa
             Cast.CastApi.stopApplication(apiClient);
             applicationStarted = false;
         }
+    }
+
+    @Override
+    public void onInitialized() {
+        mPlayer.addConnectionStateCallback(this);
+        mPlayer.addPlayerNotificationCallback(this);
+    }
+
+    @Override
+    public void onError(Throwable throwable) {
+        Log.e("MainActivity", "Could not initialize player: " + throwable.getMessage());
+    }
+
+    @Override
+    public void onPlaybackEvent(EventType eventType, PlayerState playerState) {
+        Log.e("onPlaybackEvent", eventType.name());
+        ((TrackDetailedFragment)getFragmentManager().findFragmentById(R.id.fragment_container)).onPlaybackEvent(eventType, playerState);
+    }
+
+    @Override
+    public void onPlaybackError(ErrorType errorType, String s) {
+
+    }
+
+    public void playTrack(View view){
+        Log.e("playTrack", "##");
+        mPlayer.resume();
+    }
+
+    public void pauseTrack(View view){
+        Log.e("pauseTrack", "##");
+        mPlayer.pause();
     }
 }

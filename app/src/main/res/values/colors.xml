@@ -5,5 +5,11 @@
     <color name="color_accent">#D7CCC8</color>
     <color name="color_select">#A1887F</color>
     <color name="color_text">#1B5E20</color>
+    <color name="color_text_accent">#66BB6A</color>
     <color name="color_listitem_background">#EFEBE9</color>
+
+    <color name="default_screen_bg">#f9f9f9</color>
+    <color name="rounded_container_bg">#222222</color>
+    <color name="rounded_container_border">#3b3f44</color>
+    <color name="light_gray_header_color">#646663</color>
 </resources>
